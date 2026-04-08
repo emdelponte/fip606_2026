@@ -1,2 +1,2 @@
 # fip606_2026
-Apostila
+Apostila da disciplina.
