@@ -1,0 +1,131 @@
+---
+title: "Análise de Eficiência de Inseticidas (Aula 5)"
+subtitle: "Comparação entre ANOVA, Transformações e GLM"
+author: "Estatística Experimental"
+date: "`r Sys.Date()`"
+format: 
+  html:
+    toc: true
+    toc-location: left
+    code-fold: show
+    theme: cosmo
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## 1. Introdução e Preparação dos Dados
+
+O conjunto de dados `InsectSprays` contém contagens de insetos em unidades experimentais tratadas com seis tipos de inseticidas (sprays). Por se tratar de **dados de contagem** (números inteiros e positivos), a análise deve considerar que a variância frequentemente aumenta com a média.
+
+```{r setup}
+#| message: false
+#| warning: false
+
+# Carregamento de bibliotecas necessárias
+library(tidyverse)    # Manipulação e visualização
+library(performance)  # Verificação de pressupostos
+library(DHARMa)       # Diagnóstico de resíduos de GLMs
+library(emmeans)      # Médias estimadas e comparações
+library(multcomp)     # Testes de comparação múltipla
+library(multcompView) # Suporte para letras de significância
+library(agricolae)    # Testes agronômicos e Kruskal-Wallis
+
+# Carregando os dados
+insetos <- InsectSprays
+
+```
+
+
+
+
+```{r}
+insetos |> 
+  ggplot(aes(x = spray, y = count, fill = spray)) +
+  geom_boxplot(outlier.colour = NA, alpha = 0.6) +
+  geom_jitter(width = 0.1, alpha = 0.4) +
+  theme_minimal() +
+  labs(title = "Distribuição da Contagem de Insetos por Spray",
+       subtitle = "Visualização da variabilidade entre tratamentos",
+       x = "Tipo de Spray",
+       y = "Número de Insetos") +
+  theme(legend.position = "none")
+```
+
+
+```{r}
+# Ajuste do modelo linear
+m1 <- lm(count ~ spray, data = insetos)
+
+# Resumo do modelo e Tabela ANOVA
+anova(m1)
+
+# Verificação de Pressupostos
+# Teste de Shapiro-Wilk para normalidade e Bartlett para variância
+check_normality(m1)
+check_heteroscedasticity(m1)
+
+# Diagnóstico visual via DHARMa
+# Pontos fora das faixas indicam problemas no modelo linear simples
+plot(simulateResiduals(m1))
+
+```
+
+```{r}
+kruskal.test(count ~ spray, data = insetos)
+
+# Comparação de grupos (Post-hoc)
+k_test <- kruskal(insetos$count, insetos$spray, group = TRUE)
+print(k_test$groups)
+```
+
+
+
+```{r}
+# Novo modelo com a resposta transformada
+m2 <- lm(sqrt(count) ~ spray, data = insetos)
+
+# Verificando se a transformação corrigiu a variância
+check_heteroscedasticity(m2)
+
+```
+
+
+```{r}
+# Ajuste do modelo GLM
+m3 <- glm(count ~ spray, family = poisson(link = "log"), data = insetos)
+
+# Diagnóstico de resíduos para GLM
+# Verifica se há sub ou superdispersão (Overdispersion)
+plot(simulateResiduals(m3))
+
+# Comparação de médias e Letras de Significância (Teste de Tukey)
+# 'type = response' converte os valores da escala log para a escala real (contagem)
+medias_glm <- emmeans(m3, ~ spray, type = "response")
+df_final <- cld(medias_glm, Letters = LETTERS, reversed = TRUE) |> 
+  mutate(.group = trimws(.group)) # Remove espaços extras
+
+print(df_final)
+```
+
+
+```{r}
+df_final |> 
+  ggplot(aes(x = reorder(spray, -rate), y = rate, label = .group)) +
+  geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), width = 0.1, color = "gray30") +
+  geom_point(size = 4, color = "steelblue") +
+  geom_text(aes(y = asymp.UCL), vjust = -1, size = 5) +
+  scale_y_continuous(limits = c(0, 25)) +
+  coord_flip() +
+  theme_classic() +
+  labs(
+    title = "Eficácia dos Inseticidas",
+    subtitle = "Médias estimadas por GLM Poisson com Intervalos de Confiança (95%)",
+    x = "Spray Aplicado",
+    y = "Média de Insetos Vivos",
+    caption = "Letras iguais indicam que não há diferença significativa (Tukey, p > 0.05)"
+  )
+```
+
+
+

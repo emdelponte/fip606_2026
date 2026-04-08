@@ -1,0 +1,38 @@
+project:
+  type: website
+  
+cache: true
+
+website:
+  title: "Fip606"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+        icon: house-door
+      - href: aula1.qmd
+        text: Introdução
+        icon: info-circle
+      - href: aula2.qmd
+        text: Gráficos
+        icon: bar-chart-line
+      - href: aula3.qmd
+        text: Test t
+        icon: regular-expression
+      - href: aula4.qmd
+        text: Anova
+        icon: calculator
+      - href: aula5.qmd
+        text: Teste de médias
+        icon: check-all
+
+format:
+  html:
+    theme:
+      - flatly
+      
+    css: styles.css
+    toc: true
+
+editor: visual
+

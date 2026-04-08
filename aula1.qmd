@@ -1,0 +1,431 @@
+---
+title: "Aula 1 – Introdução à experimentação e análise de dados"
+subtitle: "Primeiro encontro da disciplina"
+author: "Disciplina FIP 606"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    theme: cosmo
+    code-fold: false
+    code-tools: false
+execute:
+  echo: true
+  warning: false
+  message: false
+lang: pt-BR
+---
+
+::: callout-note
+## Propósito da aula
+
+Esta primeira aula foi planejada para ser **leve, participativa e orientada por discussão**, com foco em um experimento simples, introdução ao **RStudio** e uso da **IA como assistente crítico**, não como substituta do raciocínio científico.
+:::
+
+# Introdução
+
+Esta aula apresenta os fundamentos da disciplina e introduz os estudantes à análise de dados experimentais utilizando **R**. A proposta pedagógica prioriza **aprendizagem ativa**, discussão em grupo e uso crítico de ferramentas computacionais, incluindo **inteligência artificial** como assistente analítico.
+
+A lógica da aula segue o fluxo do raciocínio científico:
+
+1.  Formular uma pergunta
+2.  Observar dados
+3.  Discutir evidências
+4.  Organizar dados
+5.  Realizar análise exploratória
+6.  Comparar interpretações humanas e assistidas por IA
+
+::: callout-important
+## Mensagem central
+
+Nesta disciplina, o objetivo não é apenas aprender software ou memorizar comandos.\
+O objetivo é aprender a **pensar cientificamente com dados**.
+:::
+
+# Objetivos da aula
+
+Ao final da aula os estudantes deverão ser capazes de:
+
+-   compreender o propósito da disciplina
+-   discutir um experimento simples
+-   reconhecer termos básicos de experimentação
+-   abrir e utilizar o RStudio
+-   inserir e analisar um pequeno conjunto de dados em R
+-   compreender o papel da IA como **assistente científico**
+
+# Estrutura da aula
+
+A aula está organizada em quatro períodos de 50 minutos:
+
+1.  **Problema científico e discussão**
+2.  **Construção de glossário e conceitos**
+3.  **Introdução ao RStudio e análise de dados**
+4.  **Comparação com análise assistida por IA**
+
+::: callout-tip
+## Estratégia didática
+
+A aula começa com um **problema**, não com uma definição.\
+Primeiro os estudantes observam, discutem e levantam hipóteses.\
+Depois os conceitos são organizados.\
+Só então entram as ferramentas computacionais.
+:::
+
+# Material utilizado
+
+## Tabela impressa
+
+**Experimento em casa de vegetação: efeito do fungicida na severidade da doença**
+
+| Planta | Tratamento | Severidade da doença (%) |
+|-------:|:-----------|-------------------------:|
+|      1 | Controle   |                       42 |
+|      2 | Controle   |                       38 |
+|      3 | Controle   |                       45 |
+|      4 | Controle   |                       40 |
+|      5 | Fungicida  |                       12 |
+|      6 | Fungicida  |                       18 |
+|      7 | Fungicida  |                       15 |
+|      8 | Fungicida  |                       10 |
+
+## Perguntas para discussão
+
+1.  O fungicida reduziu a severidade da doença?
+2.  Que evidências apoiam essa conclusão?
+3.  Por que várias plantas foram avaliadas em cada tratamento?
+
+::: callout-tip
+## Pergunta adicional
+
+O que aconteceria se apenas **uma planta** fosse avaliada por tratamento?
+:::
+
+# Período 1 — Engajamento e problema científico
+
+## Objetivo
+
+Criar engajamento, colocar os estudantes para pensar cientificamente e gerar a necessidade da disciplina.
+
+## Abertura
+
+A aula começa com a seguinte mensagem:
+
+> Nesta disciplina o objetivo não é apenas aprender software ou memorizar comandos.\
+> O objetivo é aprender a pensar cientificamente com dados.
+
+Em seguida é apresentado um pequeno experimento.
+
+## Atividade em duplas
+
+Os estudantes recebem a tabela e discutem as perguntas por aproximadamente **5 a 7 minutos**.
+
+O professor circula pela sala observando as discussões.
+
+### Termos que normalmente surgem
+
+-   tratamento
+-   severidade
+-   média
+-   repetição
+-   variabilidade
+-   controle
+
+::: callout-note
+## Papel do professor neste momento
+
+Ouvir mais do que explicar.\
+O objetivo é fazer os conceitos **emergirem da discussão dos alunos**.
+:::
+
+## Discussão coletiva
+
+Perguntas orientadoras:
+
+-   O fungicida reduziu a severidade?
+-   Como vocês chegaram a essa conclusão?
+-   Por que não avaliar apenas uma planta?
+
+Termos que emergem são registrados no quadro.
+
+## Síntese do período
+
+Mensagem principal:
+
+> Perguntas simples como esta são o ponto de partida da análise de dados em pesquisa científica.
+
+# Período 2 — Construção do glossário
+
+## Objetivo
+
+Transformar a discussão inicial em vocabulário comum da disciplina.
+
+## Glossário de termos-chave
+
+Durante a discussão coletiva são organizados os seguintes conceitos.
+
+### Experimento (Experiment)
+
+Um estudo planejado utilizado para responder a uma pergunta científica.
+
+### Tratamento (Treatment)
+
+Uma condição aplicada às unidades experimentais.
+
+### Controle (Control)
+
+Tratamento de referência utilizado para comparação.
+
+### Variável (Variable)
+
+Uma característica mensurável.
+
+### Severidade da doença (Disease severity)
+
+Proporção de tecido vegetal afetado pela doença.
+
+### Repetição (Replication)
+
+Observações repetidas dentro de um tratamento.
+
+### Variabilidade (Variability)
+
+Diferenças naturais entre as observações.
+
+### Dados (Data)
+
+Observações registradas coletadas em um estudo.
+
+### Hipótese (Hypothesis)
+
+Explicação proposta avaliada utilizando dados.
+
+::: callout-tip
+## Sugestão de condução
+
+Monte o glossário **no quadro**, com participação dos alunos, antes de mostrar qualquer definição pronta.
+:::
+
+## Fluxo do processo científico
+
+A disciplina seguirá o seguinte fluxo analítico:
+
+1.  Fazer uma pergunta (Ask a question)\
+2.  Coletar dados (Collect data)\
+3.  Organizar dados (Organize data)\
+4.  Explorar dados (Explore data)\
+5.  Analisar dados (Analyze data)\
+6.  Interpretar resultados (Interpret results)\
+7.  Comunicar descobertas (Communicate findings)
+
+::: callout-important
+## Ideia-chave
+
+Os estudantes precisam perceber desde a primeira aula que a análise de dados não começa no software.\
+Ela começa com uma **pergunta científica bem formulada**.
+:::
+
+## Uso de inteligência artificial na disciplina
+
+A IA pode atuar como assistente para:
+
+-   explicar código
+-   sugerir análises
+-   ajudar na documentação
+
+Entretanto:
+
+-   decisões analíticas devem ser compreendidas
+-   resultados devem ser interpretados criticamente
+-   análises precisam ser reproduzíveis
+
+::: callout-warning
+## Princípio da disciplina
+
+A IA pode ajudar a escrever código, mas **não substitui o raciocínio científico**.
+:::
+
+# Período 3 — Introdução ao RStudio
+
+## Objetivo
+
+Abrir o RStudio e fazer a primeira análise real da tabela.
+
+## Abrindo o RStudio
+
+Apresentação rápida da interface:
+
+-   Script
+-   Console
+-   Environment
+-   Plots / Files / Packages
+
+Mensagem ao estudante:
+
+> O objetivo hoje não é dominar o software, mas perder o medo dele.
+
+## Primeiros comandos
+
+```{r}
+2 + 2
+sqrt(16)
+```
+
+## Criando um script
+
+```{r}
+# Primeira aula
+# Experimento em casa de vegetação
+```
+
+::: callout-note
+## Comentário didático
+
+Mostre a diferença entre **rodar um comando no console** e **registrar uma análise em um script**.
+:::
+
+## Inserindo os dados no R
+
+```{r}
+dados <- data.frame(
+  planta = 1:8,
+  tratamento = c("Controle","Controle","Controle","Controle",
+                 "Fungicida","Fungicida","Fungicida","Fungicida"),
+  severidade = c(42,38,45,40,12,18,15,10)
+)
+
+dados
+```
+
+## Estrutura dos dados
+
+```{r}
+str(dados)
+summary(dados)
+```
+
+## Média por tratamento
+
+```{r}
+tapply(dados$severidade, dados$tratamento, mean)
+```
+
+## Variabilidade por tratamento
+
+```{r}
+tapply(dados$severidade, dados$tratamento, sd)
+```
+
+::: callout-tip
+## Perguntas para a turma
+
+-   O que o R mostrou que já era sugerido pela tabela?
+-   A média é suficiente para concluir?
+-   O que ainda falta para uma conclusão formal?
+:::
+
+# Período 4 — Visualização e IA
+
+## Objetivo
+
+Fechar o ciclo da aula: observar a tabela, discutir, analisar no R e comparar com a IA.
+
+## Gráfico simples
+
+```{r}
+boxplot(severidade ~ tratamento, data = dados,
+        ylab = "Severidade da doença (%)",
+        xlab = "Tratamento")
+```
+
+### Discussão
+
+-   O gráfico ajuda a interpretar os dados?
+-   O que ele mostra melhor do que a tabela?
+
+## Comparação com análise feita por IA
+
+Prompt utilizado:
+
+``` text
+Aqui está um conjunto de dados de um experimento em casa de vegetação testando um fungicida.
+
+Tratamento Severidade
+Controle 42
+Controle 38
+Controle 45
+Controle 40
+Fungicida 12
+Fungicida 18
+Fungicida 15
+Fungicida 10
+
+Analise estes dados, resuma os resultados, sugira uma abordagem estatística apropriada e forneça o código em R.
+```
+
+### Perguntas para discussão
+
+-   O que a IA acertou?
+-   O que ela simplificou?
+-   Podemos confiar cegamente na resposta?
+-   A IA entende o experimento biológico?
+
+::: callout-warning
+## Mensagem para enfatizar
+
+Primeiro o raciocínio humano, depois a ferramenta.\
+A IA entra no final da aula como **comparação**, não como ponto de partida.
+:::
+
+# Síntese final
+
+Pergunta inicial da aula:
+
+> O fungicida reduziu a severidade da doença?
+
+Durante a aula os estudantes responderam essa pergunta por diferentes caminhos:
+
+-   observação da tabela
+-   discussão em grupo
+-   análise em R
+-   comparação com interpretação da IA
+
+::: callout-important
+## Fechamento
+
+A análise científica não é apenas executar código, mas compreender experimentos, interpretar dados e comunicar resultados de forma rigorosa.
+:::
+
+# Tarefa para casa
+
+1.  Definir com suas próprias palavras três termos do glossário.
+2.  Escrever uma frase respondendo se o fungicida reduziu a severidade.
+3.  Explicar por que repetição é importante em experimentos.
+
+# Notas para o professor
+
+## Ritmo da aula
+
+-   **Período 1:** menos explicação, mais escuta
+-   **Período 2:** organizar a linguagem
+-   **Período 3:** reduzir medo do software
+-   **Período 4:** mostrar IA como apoio crítico
+
+## O que evitar na primeira aula
+
+-   excesso de teoria estatística
+-   muitos detalhes de interface
+-   conceitos avançados de delineamento
+-   transformar a IA em protagonista
+
+## Resultado esperado
+
+Ao final do primeiro dia, os estudantes terão:
+
+-   participado ativamente
+-   discutido um experimento simples
+-   construído um vocabulário inicial
+-   aberto o RStudio sem trauma
+-   digitado dados reais
+-   feito uma análise básica
+-   visto a IA como apoio crítico
