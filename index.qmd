@@ -1,7 +1,7 @@
 ---
-title: "fip606"
+title: "FIP 606 - Análise e visualização de dados em Fitopatologia"
 ---
 
 ![](image.png)
 
-Apostila das aulas da disciplina FIP 606 - Análise e visualização de dados em Fitopatologia, oferecida pelo Programa de Pós-gradução em Fitopatologia e ministrada pelo Prof. Emerson Del Ponte
+Apostila das aulas da disciplina FIP 606, oferecida pelo Programa de Pós-graduação em Fitopatologia e ministrada pelo Prof. Emerson Del Ponte.

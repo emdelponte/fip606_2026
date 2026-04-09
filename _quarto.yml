@@ -1,10 +1,11 @@
 project:
   type: website
+  output-dir: docs
   
 cache: true
 
 website:
-  title: "Fip606"
+  title: "FIP 606"
   navbar:
     left:
       - href: index.qmd
@@ -18,7 +19,7 @@ website:
         icon: bar-chart-line
       - href: aula3.qmd
         text: Test t
-        icon: regular-expression
+        icon: calculator
       - href: aula4.qmd
         text: Anova
         icon: calculator
