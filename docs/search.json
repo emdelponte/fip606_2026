@@ -691,5 +691,159 @@
     "title": "Aula 5 — ANOVA, Diagnóstico de Pressupostos, Kruskal-Wallis e GLM de Poisson",
     "section": "9.4 Gráfico das médias estimadas do GLM",
     "text": "9.4 Gráfico das médias estimadas do GLM\n\ndf3 |&gt;\n  ggplot(aes(x = reorder(spray, -rate), y = rate, label = .group)) +\n  geom_point() +\n  geom_errorbar(aes(ymin = asymp.LCL, ymax = asymp.UCL), width = 0.1) +\n  geom_text(aes(y = asymp.UCL), vjust = -0.5, size = 4) +\n  theme_classic() +\n  labs(\n    x = \"Inseticida\",\n    y = \"Insetos vivos (contagem esperada)\"\n  ) +\n  coord_flip()"
+  },
+  {
+    "objectID": "aula6a.html",
+    "href": "aula6a.html",
+    "title": "Aula 6",
+    "section": "",
+    "text": "Nesta aula trabalharemos com três situações analíticas bastante comuns em experimentação agronômica e fitopatológica:\n\nexperimento fatorial, para avaliar simultaneamente os efeitos de fungicida, dose e sua interação sobre a severidade;\ndelineamento em blocos, para analisar produtividade em experimento de campo controlando a heterogeneidade experimental;\nanálise de associação, por meio de correlação e regressão linear simples, para investigar a relação entre variáveis quantitativas.\n\nAo longo do código, os comentários procuram explicar não apenas como executar os procedimentos, mas também por que eles são usados e como interpretar os resultados.\n\n\n\nlibrary(readxl)\nlibrary(tidyverse)\n\n── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──\n✔ dplyr     1.1.4     ✔ readr     2.1.5\n✔ forcats   1.0.0     ✔ stringr   1.6.0\n✔ ggplot2   4.0.2     ✔ tibble    3.3.0\n✔ lubridate 1.9.4     ✔ tidyr     1.3.1\n✔ purrr     1.0.4     \n── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──\n✖ dplyr::filter() masks stats::filter()\n✖ dplyr::lag()    masks stats::lag()\nℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors\n\nlibrary(emmeans)\n\nWelcome to emmeans.\nCaution: You lose important information if you filter this package's results.\nSee '? untidy'\n\nlibrary(multcomp)\n\nLoading required package: mvtnorm\nLoading required package: survival\nLoading required package: TH.data\nLoading required package: MASS\n\nAttaching package: 'MASS'\n\nThe following object is masked from 'package:dplyr':\n\n    select\n\n\nAttaching package: 'TH.data'\n\nThe following object is masked from 'package:MASS':\n\n    geyser\n\nlibrary(DHARMa)\n\nThis is DHARMa 0.4.7. For overview type '?DHARMa'. For recent changes, type news(package = 'DHARMa')\n\nlibrary(ggthemes)"
+  },
+  {
+    "objectID": "aula6a.html#pacotes",
+    "href": "aula6a.html#pacotes",
+    "title": "Aula 6",
+    "section": "",
+    "text": "library(readxl)\nlibrary(tidyverse)\n\n── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──\n✔ dplyr     1.1.4     ✔ readr     2.1.5\n✔ forcats   1.0.0     ✔ stringr   1.6.0\n✔ ggplot2   4.0.2     ✔ tibble    3.3.0\n✔ lubridate 1.9.4     ✔ tidyr     1.3.1\n✔ purrr     1.0.4     \n── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──\n✖ dplyr::filter() masks stats::filter()\n✖ dplyr::lag()    masks stats::lag()\nℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors\n\nlibrary(emmeans)\n\nWelcome to emmeans.\nCaution: You lose important information if you filter this package's results.\nSee '? untidy'\n\nlibrary(multcomp)\n\nLoading required package: mvtnorm\nLoading required package: survival\nLoading required package: TH.data\nLoading required package: MASS\n\nAttaching package: 'MASS'\n\nThe following object is masked from 'package:dplyr':\n\n    select\n\n\nAttaching package: 'TH.data'\n\nThe following object is masked from 'package:MASS':\n\n    geyser\n\nlibrary(DHARMa)\n\nThis is DHARMa 0.4.7. For overview type '?DHARMa'. For recent changes, type news(package = 'DHARMa')\n\nlibrary(ggthemes)"
+  },
+  {
+    "objectID": "aula6a.html#importação-e-preparo-dos-dados",
+    "href": "aula6a.html#importação-e-preparo-dos-dados",
+    "title": "Aula 6",
+    "section": "Importação e preparo dos dados",
+    "text": "Importação e preparo dos dados\n\nfungicidas &lt;- read_excel(\"dados_diversos.xlsx\", sheet = \"fungicida_vaso\")\n\nfungicidas2 &lt;- fungicidas |&gt; \n  mutate(\n    incidencia = inf_seeds / n_seeds,\n    dose = factor(dose),\n    treat = factor(treat)\n  )\n\nglimpse(fungicidas2)\n\nRows: 20\nColumns: 9\n$ treat      &lt;fct&gt; Ionic liquid, Ionic liquid, Ionic liquid, Ionic liquid, Ion…\n$ dose       &lt;fct&gt; 0.5, 0.5, 0.5, 0.5, 0.5, 2, 2, 2, 2, 2, 0.5, 0.5, 0.5, 0.5,…\n$ rep        &lt;dbl&gt; 1, 2, 3, 4, 5, 2, 3, 4, 5, 1, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5\n$ n_sp       &lt;dbl&gt; 103, 125, 210, 97, 180, 116, 166, 157, 129, 84, 121, 123, 1…\n$ dis_sp     &lt;dbl&gt; 13, 31, 80, 28, 75, 9, 7, 12, 7, 0, 0, 6, 3, 0, 4, 3, 0, 4,…\n$ n_seeds    &lt;dbl&gt; 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25,…\n$ inf_seeds  &lt;dbl&gt; 10, 12, 12, 10, 11, 6, 3, 1, 7, 1, 2, 5, 1, 2, 1, 5, 2, 2, …\n$ severity   &lt;dbl&gt; 0.12621359, 0.24800000, 0.38095238, 0.28865979, 0.41666667,…\n$ incidencia &lt;dbl&gt; 0.40, 0.48, 0.48, 0.40, 0.44, 0.24, 0.12, 0.04, 0.28, 0.04,…\n\n\nA variável incidencia foi calculada como a proporção de sementes infectadas:\n\\[\n\\text{incidência} = \\frac{\\text{número de sementes infectadas}}{\\text{número total de sementes avaliadas}}\n\\]\nNeste primeiro conjunto, a variável resposta analisada será severity. Como treat e dose representam tratamentos experimentais, ambos devem ser tratados como fatores."
+  },
+  {
+    "objectID": "aula6a.html#visualização-inicial",
+    "href": "aula6a.html#visualização-inicial",
+    "title": "Aula 6",
+    "section": "Visualização inicial",
+    "text": "Visualização inicial\n\nfungicidas2 |&gt; \n  ggplot(aes(x = treat, y = severity, color = dose)) +\n  geom_jitter(width = 0.08, height = 0, size = 2, alpha = 0.7) +\n  facet_wrap(~ dose) +\n  theme_classic() +\n  labs(\n    x = \"Fungicida\",\n    y = \"Severidade\",\n    color = \"Dose\"\n  )\n\n\n\n\n\n\n\n\n\ninteraction.plot(\n  x.factor = fungicidas2$treat,\n  trace.factor = fungicidas2$dose,\n  response = fungicidas2$severity,\n  xlab = \"Fungicida\",\n  ylab = \"Severidade média\",\n  trace.label = \"Dose\"\n)\n\n\n\n\n\n\n\n\nA inspeção gráfica antecede a modelagem. Em um experimento fatorial, ela é importante porque permite avaliar se há indícios de interação entre os fatores. Em termos práticos:\n\nse as linhas do gráfico de interação forem aproximadamente paralelas, a evidência visual favorece ausência de interação;\nse as linhas se cruzarem ou divergirem claramente, isso sugere que o efeito de um fator depende do nível do outro."
+  },
+  {
+    "objectID": "aula6a.html#modelos-candidatos",
+    "href": "aula6a.html#modelos-candidatos",
+    "title": "Aula 6",
+    "section": "Modelos candidatos",
+    "text": "Modelos candidatos\n\nModelo 1: efeito apenas de fungicida\n\nm1 &lt;- lm(severity ~ treat, data = fungicidas2)\nanova(m1)\n\nAnalysis of Variance Table\n\nResponse: severity\n          Df  Sum Sq Mean Sq F value   Pr(&gt;F)   \ntreat      1 0.11323 0.11323  9.8892 0.005603 **\nResiduals 18 0.20610 0.01145                    \n---\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n\n\n\n\nModelo 2: efeito apenas de dose\n\nm2 &lt;- lm(severity ~ dose, data = fungicidas2)\nanova(m2)\n\nAnalysis of Variance Table\n\nResponse: severity\n          Df   Sum Sq  Mean Sq F value  Pr(&gt;F)  \ndose       1 0.073683 0.073683  5.3991 0.03206 *\nResiduals 18 0.245649 0.013647                  \n---\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n\n\n\n\nModelo 3: modelo fatorial com interação\n\nm3 &lt;- lm(severity ~ treat * dose, data = fungicidas2)\nanova(m3)\n\nAnalysis of Variance Table\n\nResponse: severity\n           Df   Sum Sq  Mean Sq F value    Pr(&gt;F)    \ntreat       1 0.113232 0.113232  30.358 4.754e-05 ***\ndose        1 0.073683 0.073683  19.755 0.0004077 ***\ntreat:dose  1 0.072739 0.072739  19.502 0.0004326 ***\nResiduals  16 0.059678 0.003730                      \n---\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n\n\nO modelo fatorial com interação pode ser escrito como:\n\\[\nY_{ijk} = \\mu + \\alpha_i + \\beta_j + (\\alpha\\beta)_{ij} + \\varepsilon_{ijk}\n\\]\nem que:\n\n\\(Y_{ijk}\\) é a observação de severidade na combinação entre o fungicida \\(i\\) e a dose \\(j\\);\n\\(\\mu\\) é a média geral;\n\\(\\alpha_i\\) é o efeito do fungicida;\n\\(\\beta_j\\) é o efeito da dose;\n\\((\\alpha\\beta)_{ij}\\) é o efeito de interação entre fungicida e dose;\n\\(\\varepsilon_{ijk}\\) é o erro aleatório, assumido com média zero e variância constante.\n\nNa ANOVA, a estatística de teste para cada fonte de variação é dada por:\n\\[\nF = \\frac{QM_{\\text{fonte}}}{QM_{\\text{erro}}}\n\\]\nem que \\(QM\\) é o quadrado médio. Valores altos de \\(F\\) indicam que a variação explicada pela fonte é grande em relação à variação residual.\n\n\nInterpretação da interação\nEm experimentos fatoriais, a presença de interação significativa muda a forma de interpretar os efeitos principais. Quando a interação é relevante, evita-se discutir apenas “o melhor fungicida” ou “a melhor dose” isoladamente, porque o efeito de um depende do outro. Nesse caso, a interpretação correta passa a ser feita por efeitos simples, isto é, comparando doses dentro de cada fungicida, ou fungicidas dentro de cada dose."
+  },
+  {
+    "objectID": "aula6a.html#diagnóstico-do-modelo",
+    "href": "aula6a.html#diagnóstico-do-modelo",
+    "title": "Aula 6",
+    "section": "Diagnóstico do modelo",
+    "text": "Diagnóstico do modelo\n\nres_m3 &lt;- simulateResiduals(m3)\nplot(res_m3)\n\n\n\n\n\n\n\n\nO pacote {DHARMa} produz resíduos simulados padronizados, úteis para avaliar:\n\npadrões de assimetria;\nheterogeneidade de variâncias;\ndesvios importantes de distribuição;\nobservações discrepantes.\n\nEmbora lm() assuma erros normais com variância constante, em aplicações práticas a avaliação gráfica dos resíduos costuma ser mais informativa do que depender apenas de testes formais."
+  },
+  {
+    "objectID": "aula6a.html#médias-ajustadas-e-comparação-múltipla",
+    "href": "aula6a.html#médias-ajustadas-e-comparação-múltipla",
+    "title": "Aula 6",
+    "section": "Médias ajustadas e comparação múltipla",
+    "text": "Médias ajustadas e comparação múltipla\n\nmedias_m3 &lt;- emmeans(m3, ~ dose | treat)\nmedias_m3\n\ntreat = Ionic liquid:\n dose emmean     SE df lower.CL upper.CL\n 0.5  0.2921 0.0273 16  0.23420   0.3500\n 2    0.0501 0.0273 16 -0.00781   0.1080\n\ntreat = Tebuconazole:\n dose emmean     SE df lower.CL upper.CL\n 0.5  0.0210 0.0273 16 -0.03690   0.0789\n 2    0.0202 0.0273 16 -0.03768   0.0781\n\nConfidence level used: 0.95 \n\n\n\ncld(medias_m3, Letters = letters)\n\ntreat = Ionic liquid:\n dose emmean     SE df lower.CL upper.CL .group\n 2    0.0501 0.0273 16 -0.00781   0.1080  a    \n 0.5  0.2921 0.0273 16  0.23420   0.3500   b   \n\ntreat = Tebuconazole:\n dose emmean     SE df lower.CL upper.CL .group\n 2    0.0202 0.0273 16 -0.03768   0.0781  a    \n 0.5  0.0210 0.0273 16 -0.03690   0.0789  a    \n\nConfidence level used: 0.95 \nsignificance level used: alpha = 0.05 \nNOTE: If two or more means share the same grouping symbol,\n      then we cannot show them to be different.\n      But we also did not show them to be the same. \n\n\nAs médias obtidas por emmeans() são médias marginais estimadas, também chamadas de médias ajustadas. Elas representam as médias previstas pelo modelo e são especialmente úteis quando o desenho não é perfeitamente balanceado ou quando há termos adicionais no modelo.\nA função cld() organiza os grupos de médias por letras. Médias que compartilham a mesma letra não diferem entre si ao nível de significância adotado.\n\nTabela ilustrativa para a interação\n\n\n\nFungicida\nDose 0.5\nDose 2\n\n\n\n\nIonic liquid\n0.29 Aa\n0.05 Ab\n\n\nTebuconazole\n0.02 Ba\n0.02 Aa\n\n\n\nLeitura da tabela:\n\nletras maiúsculas comparam fungicidas dentro de cada dose;\nletras minúsculas comparam doses dentro de cada fungicida;\nmédias com a mesma letra não diferem a 5% de probabilidade."
+  },
+  {
+    "objectID": "aula6a.html#importação-e-preparo-dos-dados-1",
+    "href": "aula6a.html#importação-e-preparo-dos-dados-1",
+    "title": "Aula 6",
+    "section": "Importação e preparo dos dados",
+    "text": "Importação e preparo dos dados\n\ncampo &lt;- read_excel(\"dados_diversos.xlsx\", sheet = \"fungicida_campo\")\n\ncampo2 &lt;- campo |&gt; \n  mutate(\n    trat = factor(TRAT),\n    bloco = factor(BLOCO)\n  ) |&gt; \n  transmute(\n    trat,\n    bloco,\n    prod = PROD\n  )\n\nglimpse(campo2)\n\nRows: 32\nColumns: 3\n$ trat  &lt;fct&gt; 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6…\n$ bloco &lt;fct&gt; 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2…\n$ prod  &lt;dbl&gt; 4611.3, 4311.7, 4544.5, 3409.4, 5022.6, 4839.3, 4902.6, 4975.2, …\n\n\nNeste conjunto, a variável resposta é a produtividade (prod). O fator bloco representa uma estrutura de controle experimental usada para reduzir a variabilidade não controlada entre unidades experimentais."
+  },
+  {
+    "objectID": "aula6a.html#visualização-inicial-1",
+    "href": "aula6a.html#visualização-inicial-1",
+    "title": "Aula 6",
+    "section": "Visualização inicial",
+    "text": "Visualização inicial\n\ncampo2 |&gt; \n  ggplot(aes(x = trat, y = prod)) +\n  geom_jitter(width = 0.08, alpha = 0.6, size = 2) +\n  stat_summary(fun = mean, geom = \"point\", size = 4, shape = 18) +\n  theme_classic() +\n  labs(\n    x = \"Tratamento fungicida\",\n    y = expression(\"Produtividade (kg ha\"^-1*\")\")\n  )\n\n\n\n\n\n\n\n\nOs pontos mostram os valores individuais e o losango representa a média de cada tratamento. Essa visualização ajuda a avaliar amplitude dos dados, dispersão dentro dos tratamentos e possíveis diferenças entre médias."
+  },
+  {
+    "objectID": "aula6a.html#modelo-em-blocos",
+    "href": "aula6a.html#modelo-em-blocos",
+    "title": "Aula 6",
+    "section": "Modelo em blocos",
+    "text": "Modelo em blocos\n\nm_bloco &lt;- lm(prod ~ trat + bloco, data = campo2)\nanova(m_bloco)\n\nAnalysis of Variance Table\n\nResponse: prod\n          Df  Sum Sq Mean Sq F value Pr(&gt;F)  \ntrat       7 2994142  427735  2.6369 0.0402 *\nbloco      3  105716   35239  0.2172 0.8833  \nResiduals 21 3406384  162209                 \n---\nSignif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1\n\n\nO modelo para delineamento em blocos ao acaso pode ser escrito como:\n\\[\nY_{ij} = \\mu + \\tau_i + \\beta_j + \\varepsilon_{ij}\n\\]\nem que:\n\n\\(Y_{ij}\\) é a produtividade observada no tratamento \\(i\\) dentro do bloco \\(j\\);\n\\(\\mu\\) é a média geral;\n\\(\\tau_i\\) é o efeito do tratamento;\n\\(\\beta_j\\) é o efeito do bloco;\n\\(\\varepsilon_{ij}\\) é o erro aleatório.\n\nA principal função dos blocos é absorver parte da variabilidade sistemática do experimento. Quando os blocos capturam heterogeneidade real da área experimental, o erro residual tende a diminuir, aumentando a precisão das comparações entre tratamentos."
+  },
+  {
+    "objectID": "aula6a.html#diagnóstico-do-modelo-1",
+    "href": "aula6a.html#diagnóstico-do-modelo-1",
+    "title": "Aula 6",
+    "section": "Diagnóstico do modelo",
+    "text": "Diagnóstico do modelo\n\nres_bloco &lt;- simulateResiduals(m_bloco)\nplot(res_bloco)"
+  },
+  {
+    "objectID": "aula6a.html#médias-ajustadas-dos-tratamentos",
+    "href": "aula6a.html#médias-ajustadas-dos-tratamentos",
+    "title": "Aula 6",
+    "section": "Médias ajustadas dos tratamentos",
+    "text": "Médias ajustadas dos tratamentos\n\nmedias_m_bloco &lt;- emmeans(m_bloco, ~ trat)\nmedias_m_bloco\n\n trat emmean  SE df lower.CL upper.CL\n 1      4219 201 21     3800     4638\n 2      4935 201 21     4516     5354\n 3      5110 201 21     4691     5529\n 4      5140 201 21     4722     5559\n 5      5122 201 21     4703     5541\n 6      5256 201 21     4838     5675\n 7      5128 201 21     4709     5546\n 8      5078 201 21     4659     5497\n\nResults are averaged over the levels of: bloco \nConfidence level used: 0.95 \n\n\n\nres_cld &lt;- cld(medias_m_bloco, Letters = LETTERS)\nres_cld\n\n trat emmean  SE df lower.CL upper.CL .group\n 1      4219 201 21     3800     4638  A    \n 2      4935 201 21     4516     5354  AB   \n 8      5078 201 21     4659     5497  AB   \n 3      5110 201 21     4691     5529  AB   \n 5      5122 201 21     4703     5541  AB   \n 7      5128 201 21     4709     5546  AB   \n 4      5140 201 21     4722     5559  AB   \n 6      5256 201 21     4838     5675   B   \n\nResults are averaged over the levels of: bloco \nConfidence level used: 0.95 \nP value adjustment: tukey method for comparing a family of 8 estimates \nsignificance level used: alpha = 0.05 \nNOTE: If two or more means share the same grouping symbol,\n      then we cannot show them to be different.\n      But we also did not show them to be the same."
+  },
+  {
+    "objectID": "aula6a.html#gráfico-com-médias-ajustadas-e-grupos",
+    "href": "aula6a.html#gráfico-com-médias-ajustadas-e-grupos",
+    "title": "Aula 6",
+    "section": "Gráfico com médias ajustadas e grupos",
+    "text": "Gráfico com médias ajustadas e grupos\n\nres_cld |&gt; \n  ggplot(aes(x = reorder(trat, emmean), y = emmean)) +\n  geom_point(size = 3) +\n  geom_text(aes(label = .group, y = emmean + 120), size = 5) +\n  coord_flip() +\n  theme_classic() +\n  labs(\n    x = \"Tratamento fungicida\",\n    y = expression(\"Média ajustada de produtividade (kg ha\"^-1*\")\")\n  )\n\n\n\n\n\n\n\n\nEste gráfico resume a comparação entre tratamentos já considerando o efeito de blocos no ajuste do modelo. Assim, a inferência é mais consistente do que comparar apenas médias brutas."
+  },
+  {
+    "objectID": "aula6a.html#importação-dos-dados",
+    "href": "aula6a.html#importação-dos-dados",
+    "title": "Aula 6",
+    "section": "Importação dos dados",
+    "text": "Importação dos dados\n\nmofo &lt;- read_excel(\"dados_diversos.xlsx\", sheet = \"mofo\")\n\nglimpse(mofo)\n\nRows: 52\nColumns: 5\n$ study &lt;dbl&gt; 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2…\n$ treat &lt;dbl&gt; 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 1, 2, 3, 4, 5, 6, 7, …\n$ inc   &lt;dbl&gt; 76, 53, 42, 37, 29, 42, 55, 40, 26, 18, 27, 28, 36, 76, 44, 24, …\n$ scl   &lt;dbl&gt; 2194, 1663, 1313, 1177, 753, 1343, 1519, 516, 643, 400, 643, 921…\n$ yld   &lt;dbl&gt; 2265, 2618, 2554, 2632, 2820, 2799, 2503, 2967, 2965, 3088, 3044…\n\n\nAqui o interesse é estudar a associação entre variáveis quantitativas. Pelo código original, a relação explorada nos gráficos é entre inc e scl. Portanto, a análise de correlação foi alinhada a essas duas variáveis para manter coerência entre teste e visualização."
+  },
+  {
+    "objectID": "aula6a.html#visualização-geral-por-estudo",
+    "href": "aula6a.html#visualização-geral-por-estudo",
+    "title": "Aula 6",
+    "section": "Visualização geral por estudo",
+    "text": "Visualização geral por estudo\n\nmofo |&gt; \n  ggplot(aes(x = inc, y = scl, color = factor(study))) +\n  geom_point(alpha = 0.7, size = 2) +\n  geom_smooth(method = \"lm\", se = FALSE) +\n  scale_color_colorblind() +\n  theme_classic() +\n  labs(\n    x = \"Incidência\",\n    y = \"Escala / variável scl\",\n    color = \"Estudo\"\n  )\n\n`geom_smooth()` using formula = 'y ~ x'\n\n\n\n\n\n\n\n\n\nO coeficiente de correlação de Pearson mede a intensidade e a direção da associação linear entre duas variáveis quantitativas:\n\\[\nr = \\frac{\\sum_{i=1}^{n}(x_i - \\bar{x})(y_i - \\bar{y})}\n{\\sqrt{\\sum_{i=1}^{n}(x_i - \\bar{x})^2} \\sqrt{\\sum_{i=1}^{n}(y_i - \\bar{y})^2}}\n\\]\nO valor de \\(r\\) varia entre -1 e 1:\n\nvalores próximos de 1 indicam associação linear positiva forte;\nvalores próximos de -1 indicam associação linear negativa forte;\nvalores próximos de 0 indicam associação linear fraca ou ausente."
+  },
+  {
+    "objectID": "aula6a.html#correlação-geral",
+    "href": "aula6a.html#correlação-geral",
+    "title": "Aula 6",
+    "section": "Correlação geral",
+    "text": "Correlação geral\n\ncor.test(mofo$inc, mofo$scl)\n\n\n    Pearson's product-moment correlation\n\ndata:  mofo$inc and mofo$scl\nt = 5.4615, df = 50, p-value = 1.484e-06\nalternative hypothesis: true correlation is not equal to 0\n95 percent confidence interval:\n 0.4061148 0.7577627\nsample estimates:\n      cor \n0.6112689 \n\n\nO teste associado avalia a hipótese nula:\n\\[\nH_0: \\rho = 0\n\\]\ncontra a hipótese alternativa de que a correlação populacional difere de zero."
+  },
+  {
+    "objectID": "aula6a.html#correlações-por-estudo",
+    "href": "aula6a.html#correlações-por-estudo",
+    "title": "Aula 6",
+    "section": "Correlações por estudo",
+    "text": "Correlações por estudo\n\ncorrelacoes &lt;- mofo |&gt; \n  group_by(study) |&gt; \n  summarise(r = cor(inc, scl, use = \"complete.obs\"))\n\ncorrelacoes\n\n# A tibble: 4 × 2\n  study     r\n  &lt;dbl&gt; &lt;dbl&gt;\n1     1 0.913\n2     2 0.849\n3     3 0.844\n4     4 0.927"
+  },
+  {
+    "objectID": "aula6a.html#inspeção-das-distribuições",
+    "href": "aula6a.html#inspeção-das-distribuições",
+    "title": "Aula 6",
+    "section": "Inspeção das distribuições",
+    "text": "Inspeção das distribuições\n\nhist(mofo$inc, main = \"Histograma de incidência\", xlab = \"inc\")\n\n\n\n\n\n\n\nhist(mofo$scl, main = \"Histograma de scl\", xlab = \"scl\")\n\n\n\n\n\n\n\n\nA inspeção visual das distribuições é útil porque correlação de Pearson e regressão linear simples assumem, em termos de interpretação inferencial, relação aproximadamente linear e ausência de distorções severas causadas por valores extremos."
+  },
+  {
+    "objectID": "aula6a.html#gráfico-final-com-coeficientes-por-estudo",
+    "href": "aula6a.html#gráfico-final-com-coeficientes-por-estudo",
+    "title": "Aula 6",
+    "section": "Gráfico final com coeficientes por estudo",
+    "text": "Gráfico final com coeficientes por estudo\n\nlabel_data &lt;- mofo |&gt;\n  group_by(study) |&gt;\n  summarise(\n    x_pos = max(inc, na.rm = TRUE),\n    y_pos = predict(\n      lm(scl ~ inc, data = cur_data()),\n      newdata = data.frame(inc = max(inc, na.rm = TRUE))\n    ) |&gt; as.numeric(),\n    .groups = \"drop\"\n  ) |&gt;\n  left_join(correlacoes, by = \"study\")\n\nWarning: There was 1 warning in `summarise()`.\nℹ In argument: `y_pos = as.numeric(...)`.\nℹ In group 1: `study = 1`.\nCaused by warning:\n! `cur_data()` was deprecated in dplyr 1.1.0.\nℹ Please use `pick()` instead.\n\nmofo |&gt; \n  ggplot(aes(x = inc, y = scl, color = factor(study))) +\n  geom_point(alpha = 0.5, size = 2) +\n  geom_smooth(method = \"lm\", se = FALSE, linewidth = 1) +\n  geom_text(\n    data = label_data,\n    aes(x = x_pos, y = y_pos, label = paste0(\"r = \", format(round(r, 2), nsmall = 2))),\n    hjust = -0.15,\n    vjust = 0.5,\n    fontface = \"italic\",\n    show.legend = FALSE\n  ) +\n  scale_color_colorblind() +\n  scale_x_continuous(expand = expansion(mult = c(0.05, 0.20))) +\n  theme_classic(base_size = 12) +\n  theme(\n    legend.position = \"top\",\n    axis.title = element_text(face = \"bold\"),\n    axis.text = element_text(color = \"black\")\n  ) +\n  labs(\n    x = \"Incidência da doença (%)\",\n    y = \"scl\",\n    color = \"Estudo\"\n  )\n\n`geom_smooth()` using formula = 'y ~ x'\n\n\n\n\n\n\n\n\n\nEsse gráfico reúne três elementos importantes:\n\ndados observados, representados pelos pontos;\ntendência linear ajustada, representada pelas retas;\ncoeficiente de correlação por estudo, indicado ao final de cada reta.\n\nEssa abordagem é útil quando se deseja mostrar que a associação pode variar entre estudos, experimentos ou ambientes."
+  },
+  {
+    "objectID": "aula6a.html#interação-em-experimentos-fatoriais",
+    "href": "aula6a.html#interação-em-experimentos-fatoriais",
+    "title": "Aula 6",
+    "section": "1. Interação em experimentos fatoriais",
+    "text": "1. Interação em experimentos fatoriais\nQuando há interação, o efeito de um fator depende do nível do outro. Nessa situação, a interpretação deve se concentrar em comparações dentro de cada combinação relevante."
+  },
+  {
+    "objectID": "aula6a.html#uso-de-blocos-para-ganhar-precisão",
+    "href": "aula6a.html#uso-de-blocos-para-ganhar-precisão",
+    "title": "Aula 6",
+    "section": "2. Uso de blocos para ganhar precisão",
+    "text": "2. Uso de blocos para ganhar precisão\nO bloco não é o foco biológico principal, mas uma ferramenta de controle experimental. Seu papel é reduzir a variabilidade residual e melhorar a sensibilidade do teste para detectar diferenças entre tratamentos."
+  },
+  {
+    "objectID": "aula6a.html#correlação-não-implica-causalidade",
+    "href": "aula6a.html#correlação-não-implica-causalidade",
+    "title": "Aula 6",
+    "section": "3. Correlação não implica causalidade",
+    "text": "3. Correlação não implica causalidade\nMesmo quando a correlação é alta, isso indica associação estatística, e não necessariamente uma relação causal. A interpretação deve sempre considerar o contexto biológico e experimental."
   }
 ]

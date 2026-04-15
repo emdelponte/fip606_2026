@@ -1,0 +1,416 @@
+---
+title: "Aula 6"
+format: html
+editor: visual
+editor_options:
+  chunk_output_type: console
+---
+
+# Aula 6: ANOVA fatorial, blocos e correlação
+
+Nesta aula trabalharemos com três situações analíticas bastante comuns em experimentação agronômica e fitopatológica:
+
+1.  **experimento fatorial**, para avaliar simultaneamente os efeitos de fungicida, dose e sua interação sobre a severidade;
+2.  **delineamento em blocos**, para analisar produtividade em experimento de campo controlando a heterogeneidade experimental;
+3.  **análise de associação**, por meio de correlação e regressão linear simples, para investigar a relação entre variáveis quantitativas.
+
+Ao longo do código, os comentários procuram explicar não apenas **como** executar os procedimentos, mas também **por que** eles são usados e **como interpretar** os resultados.
+
+## Pacotes
+
+```{r}
+library(readxl)
+library(tidyverse)
+library(emmeans)
+library(multcomp)
+library(DHARMa)
+library(ggthemes)
+```
+
+# Parte 1 — Experimento fatorial: fungicida × dose
+
+## Importação e preparo dos dados
+
+```{r}
+fungicidas <- read_excel("dados_diversos.xlsx", sheet = "fungicida_vaso")
+
+fungicidas2 <- fungicidas |> 
+  mutate(
+    incidencia = inf_seeds / n_seeds,
+    dose = factor(dose),
+    treat = factor(treat)
+  )
+
+glimpse(fungicidas2)
+```
+
+A variável `incidencia` foi calculada como a proporção de sementes infectadas:
+
+$$
+\text{incidência} = \frac{\text{número de sementes infectadas}}{\text{número total de sementes avaliadas}}
+$$
+
+Neste primeiro conjunto, a variável resposta analisada será **severity**. Como `treat` e `dose` representam tratamentos experimentais, ambos devem ser tratados como fatores.
+
+## Visualização inicial
+
+```{r}
+fungicidas2 |> 
+  ggplot(aes(x = treat, y = severity, color = dose)) +
+  geom_jitter(width = 0.08, height = 0, size = 2, alpha = 0.7) +
+  facet_wrap(~ dose) +
+  theme_classic() +
+  labs(
+    x = "Fungicida",
+    y = "Severidade",
+    color = "Dose"
+  )
+```
+
+```{r}
+interaction.plot(
+  x.factor = fungicidas2$treat,
+  trace.factor = fungicidas2$dose,
+  response = fungicidas2$severity,
+  xlab = "Fungicida",
+  ylab = "Severidade média",
+  trace.label = "Dose"
+)
+```
+
+A inspeção gráfica antecede a modelagem. Em um experimento fatorial, ela é importante porque permite avaliar se há indícios de **interação** entre os fatores. Em termos práticos:
+
+-   se as linhas do gráfico de interação forem aproximadamente paralelas, a evidência visual favorece ausência de interação;
+-   se as linhas se cruzarem ou divergirem claramente, isso sugere que o efeito de um fator depende do nível do outro.
+
+## Modelos candidatos
+
+### Modelo 1: efeito apenas de fungicida
+
+```{r}
+m1 <- lm(severity ~ treat, data = fungicidas2)
+anova(m1)
+```
+
+### Modelo 2: efeito apenas de dose
+
+```{r}
+m2 <- lm(severity ~ dose, data = fungicidas2)
+anova(m2)
+```
+
+### Modelo 3: modelo fatorial com interação
+
+```{r}
+m3 <- lm(severity ~ treat * dose, data = fungicidas2)
+anova(m3)
+```
+
+O modelo fatorial com interação pode ser escrito como:
+
+$$
+Y_{ijk} = \mu + \alpha_i + \beta_j + (\alpha\beta)_{ij} + \varepsilon_{ijk}
+$$
+
+em que:
+
+-   $Y_{ijk}$ é a observação de severidade na combinação entre o fungicida $i$ e a dose $j$;
+-   $\mu$ é a média geral;
+-   $\alpha_i$ é o efeito do fungicida;
+-   $\beta_j$ é o efeito da dose;
+-   $(\alpha\beta)_{ij}$ é o efeito de interação entre fungicida e dose;
+-   $\varepsilon_{ijk}$ é o erro aleatório, assumido com média zero e variância constante.
+
+Na ANOVA, a estatística de teste para cada fonte de variação é dada por:
+
+$$
+F = \frac{QM_{\text{fonte}}}{QM_{\text{erro}}}
+$$
+
+em que $QM$ é o quadrado médio. Valores altos de $F$ indicam que a variação explicada pela fonte é grande em relação à variação residual.
+
+### Interpretação da interação
+
+Em experimentos fatoriais, a presença de interação significativa muda a forma de interpretar os efeitos principais. Quando a interação é relevante, evita-se discutir apenas “o melhor fungicida” ou “a melhor dose” isoladamente, porque o efeito de um depende do outro. Nesse caso, a interpretação correta passa a ser feita por **efeitos simples**, isto é, comparando doses dentro de cada fungicida, ou fungicidas dentro de cada dose.
+
+## Diagnóstico do modelo
+
+```{r}
+res_m3 <- simulateResiduals(m3)
+plot(res_m3)
+```
+
+O pacote `{DHARMa}` produz resíduos simulados padronizados, úteis para avaliar:
+
+-   padrões de assimetria;
+-   heterogeneidade de variâncias;
+-   desvios importantes de distribuição;
+-   observações discrepantes.
+
+Embora `lm()` assuma erros normais com variância constante, em aplicações práticas a avaliação gráfica dos resíduos costuma ser mais informativa do que depender apenas de testes formais.
+
+## Médias ajustadas e comparação múltipla
+
+```{r}
+medias_m3 <- emmeans(m3, ~ dose | treat)
+medias_m3
+```
+
+```{r}
+cld(medias_m3, Letters = letters)
+```
+
+As médias obtidas por `emmeans()` são **médias marginais estimadas**, também chamadas de médias ajustadas. Elas representam as médias previstas pelo modelo e são especialmente úteis quando o desenho não é perfeitamente balanceado ou quando há termos adicionais no modelo.
+
+A função `cld()` organiza os grupos de médias por letras. Médias que compartilham a mesma letra não diferem entre si ao nível de significância adotado.
+
+### Tabela ilustrativa para a interação
+
+| Fungicida    | Dose 0.5 | Dose 2  |
+|--------------|----------|---------|
+| Ionic liquid | 0.29 Aa  | 0.05 Ab |
+| Tebuconazole | 0.02 Ba  | 0.02 Aa |
+
+**Leitura da tabela:**
+
+-   letras maiúsculas comparam fungicidas dentro de cada dose;
+-   letras minúsculas comparam doses dentro de cada fungicida;
+-   médias com a mesma letra não diferem a 5% de probabilidade.
+
+# Parte 2 — Experimento em blocos ao acaso
+
+## Importação e preparo dos dados
+
+```{r}
+campo <- read_excel("dados_diversos.xlsx", sheet = "fungicida_campo")
+
+campo2 <- campo |> 
+  mutate(
+    trat = factor(TRAT),
+    bloco = factor(BLOCO)
+  ) |> 
+  transmute(
+    trat,
+    bloco,
+    prod = PROD
+  )
+
+glimpse(campo2)
+```
+
+Neste conjunto, a variável resposta é a produtividade (`prod`). O fator `bloco` representa uma estrutura de controle experimental usada para reduzir a variabilidade não controlada entre unidades experimentais.
+
+## Visualização inicial
+
+```{r}
+campo2 |> 
+  ggplot(aes(x = trat, y = prod)) +
+  geom_jitter(width = 0.08, alpha = 0.6, size = 2) +
+  stat_summary(fun = mean, geom = "point", size = 4, shape = 18) +
+  theme_classic() +
+  labs(
+    x = "Tratamento fungicida",
+    y = expression("Produtividade (kg ha"^-1*")")
+  )
+```
+
+Os pontos mostram os valores individuais e o losango representa a média de cada tratamento. Essa visualização ajuda a avaliar amplitude dos dados, dispersão dentro dos tratamentos e possíveis diferenças entre médias.
+
+## Modelo em blocos
+
+```{r}
+m_bloco <- lm(prod ~ trat + bloco, data = campo2)
+anova(m_bloco)
+```
+
+O modelo para delineamento em blocos ao acaso pode ser escrito como:
+
+$$
+Y_{ij} = \mu + \tau_i + \beta_j + \varepsilon_{ij}
+$$
+
+em que:
+
+-   $Y_{ij}$ é a produtividade observada no tratamento $i$ dentro do bloco $j$;
+-   $\mu$ é a média geral;
+-   $\tau_i$ é o efeito do tratamento;
+-   $\beta_j$ é o efeito do bloco;
+-   $\varepsilon_{ij}$ é o erro aleatório.
+
+A principal função dos blocos é absorver parte da variabilidade sistemática do experimento. Quando os blocos capturam heterogeneidade real da área experimental, o erro residual tende a diminuir, aumentando a precisão das comparações entre tratamentos.
+
+## Diagnóstico do modelo
+
+```{r}
+res_bloco <- simulateResiduals(m_bloco)
+plot(res_bloco)
+```
+
+## Médias ajustadas dos tratamentos
+
+```{r}
+medias_m_bloco <- emmeans(m_bloco, ~ trat)
+medias_m_bloco
+```
+
+```{r}
+res_cld <- cld(medias_m_bloco, Letters = LETTERS)
+res_cld
+```
+
+## Gráfico com médias ajustadas e grupos
+
+```{r}
+res_cld |> 
+  ggplot(aes(x = reorder(trat, emmean), y = emmean)) +
+  geom_point(size = 3) +
+  geom_text(aes(label = .group, y = emmean + 120), size = 5) +
+  coord_flip() +
+  theme_classic() +
+  labs(
+    x = "Tratamento fungicida",
+    y = expression("Média ajustada de produtividade (kg ha"^-1*")")
+  )
+```
+
+Este gráfico resume a comparação entre tratamentos já considerando o efeito de blocos no ajuste do modelo. Assim, a inferência é mais consistente do que comparar apenas médias brutas.
+
+# Parte 3 — Correlação e regressão linear
+
+## Importação dos dados
+
+```{r}
+mofo <- read_excel("dados_diversos.xlsx", sheet = "mofo")
+
+glimpse(mofo)
+```
+
+Aqui o interesse é estudar a associação entre variáveis quantitativas. Pelo código original, a relação explorada nos gráficos é entre `inc` e `scl`. Portanto, a análise de correlação foi alinhada a essas duas variáveis para manter coerência entre teste e visualização.
+
+## Visualização geral por estudo
+
+```{r}
+mofo |> 
+  ggplot(aes(x = inc, y = scl, color = factor(study))) +
+  geom_point(alpha = 0.7, size = 2) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_colorblind() +
+  theme_classic() +
+  labs(
+    x = "Incidência",
+    y = "Escala / variável scl",
+    color = "Estudo"
+  )
+```
+
+O coeficiente de correlação de Pearson mede a intensidade e a direção da associação linear entre duas variáveis quantitativas:
+
+$$
+r = \frac{\sum_{i=1}^{n}(x_i - \bar{x})(y_i - \bar{y})}
+{\sqrt{\sum_{i=1}^{n}(x_i - \bar{x})^2} \sqrt{\sum_{i=1}^{n}(y_i - \bar{y})^2}}
+$$
+
+O valor de $r$ varia entre -1 e 1:
+
+-   valores próximos de 1 indicam associação linear positiva forte;
+-   valores próximos de -1 indicam associação linear negativa forte;
+-   valores próximos de 0 indicam associação linear fraca ou ausente.
+
+## Correlação geral
+
+```{r}
+cor.test(mofo$inc, mofo$scl)
+```
+
+O teste associado avalia a hipótese nula:
+
+$$
+H_0: \rho = 0
+$$
+
+contra a hipótese alternativa de que a correlação populacional difere de zero.
+
+## Correlações por estudo
+
+```{r}
+correlacoes <- mofo |> 
+  group_by(study) |> 
+  summarise(r = cor(inc, scl, use = "complete.obs"))
+
+correlacoes
+```
+
+## Inspeção das distribuições
+
+```{r}
+hist(mofo$inc, main = "Histograma de incidência", xlab = "inc")
+hist(mofo$scl, main = "Histograma de scl", xlab = "scl")
+```
+
+A inspeção visual das distribuições é útil porque correlação de Pearson e regressão linear simples assumem, em termos de interpretação inferencial, relação aproximadamente linear e ausência de distorções severas causadas por valores extremos.
+
+## Gráfico final com coeficientes por estudo
+
+```{r}
+label_data <- mofo |>
+  group_by(study) |>
+  summarise(
+    x_pos = max(inc, na.rm = TRUE),
+    y_pos = predict(
+      lm(scl ~ inc, data = cur_data()),
+      newdata = data.frame(inc = max(inc, na.rm = TRUE))
+    ) |> as.numeric(),
+    .groups = "drop"
+  ) |>
+  left_join(correlacoes, by = "study")
+
+mofo |> 
+  ggplot(aes(x = inc, y = scl, color = factor(study))) +
+  geom_point(alpha = 0.5, size = 2) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 1) +
+  geom_text(
+    data = label_data,
+    aes(x = x_pos, y = y_pos, label = paste0("r = ", format(round(r, 2), nsmall = 2))),
+    hjust = -0.15,
+    vjust = 0.5,
+    fontface = "italic",
+    show.legend = FALSE
+  ) +
+  scale_color_colorblind() +
+  scale_x_continuous(expand = expansion(mult = c(0.05, 0.20))) +
+  theme_classic(base_size = 12) +
+  theme(
+    legend.position = "top",
+    axis.title = element_text(face = "bold"),
+    axis.text = element_text(color = "black")
+  ) +
+  labs(
+    x = "Incidência da doença (%)",
+    y = "scl",
+    color = "Estudo"
+  )
+```
+
+Esse gráfico reúne três elementos importantes:
+
+1.  **dados observados**, representados pelos pontos;
+2.  **tendência linear ajustada**, representada pelas retas;
+3.  **coeficiente de correlação por estudo**, indicado ao final de cada reta.
+
+Essa abordagem é útil quando se deseja mostrar que a associação pode variar entre estudos, experimentos ou ambientes.
+
+# Síntese conceitual da aula
+
+Nesta aula, três ideias estatísticas centrais foram trabalhadas.
+
+## 1. Interação em experimentos fatoriais
+
+Quando há interação, o efeito de um fator depende do nível do outro. Nessa situação, a interpretação deve se concentrar em comparações dentro de cada combinação relevante.
+
+## 2. Uso de blocos para ganhar precisão
+
+O bloco não é o foco biológico principal, mas uma ferramenta de controle experimental. Seu papel é reduzir a variabilidade residual e melhorar a sensibilidade do teste para detectar diferenças entre tratamentos.
+
+## 3. Correlação não implica causalidade
+
+Mesmo quando a correlação é alta, isso indica associação estatística, e não necessariamente uma relação causal. A interpretação deve sempre considerar o contexto biológico e experimental.

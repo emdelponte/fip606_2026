@@ -26,6 +26,9 @@ website:
       - href: aula5.qmd
         text: Teste de médias
         icon: check-all
+      - href: aula6a.qmd
+        text: Interação e correlações
+        icon: calculator
 
 format:
   html:
