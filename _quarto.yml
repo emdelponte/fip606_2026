@@ -1,7 +1,7 @@
 project:
   type: website
   output-dir: docs
- 
+
 cache: true
 
 website:
@@ -11,33 +11,37 @@ website:
       - href: index.qmd
         text: Home
         icon: house-door
+
       - href: aula1.qmd
         text: Introdução
         icon: info-circle
+
       - href: aula2.qmd
         text: Gráficos
         icon: bar-chart-line
-      - href: aula3.qmd
-        text: Test t
+
+      - text: Testes estatísticos
         icon: calculator
-      - href: aula4.qmd
-        text: Anova
-        icon: calculator
-      - href: aula5.qmd
-        text: Teste de médias
-        icon: check-all
-      - href: aula6a.qmd
-        text: Interação e correlações
-        icon: calculator
-      - href: aula7.qmd
-        text: Parcelas subdivididas
-        icon: calculator
+        menu:
+          - href: aula3.qmd
+            text: Teste t
+
+          - href: aula4.qmd
+            text: ANOVA
+
+          - href: aula5.qmd
+            text: Teste de médias
+
+          - href: aula6a.qmd
+            text: Interação e correlações
+
+          - href: aula7.qmd
+            text: Parcelas subdivididas
 
 format:
   html:
     theme:
       - flatly
-      
     css: styles.css
     toc: true
 
