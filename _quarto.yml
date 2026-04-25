@@ -1,7 +1,7 @@
 project:
   type: website
   output-dir: docs
-  
+ 
 cache: true
 
 website:
@@ -28,6 +28,9 @@ website:
         icon: check-all
       - href: aula6a.qmd
         text: Interação e correlações
+        icon: calculator
+      - href: aula7.qmd
+        text: Parcelas subdivididas
         icon: calculator
 
 format:

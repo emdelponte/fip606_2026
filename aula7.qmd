@@ -1,0 +1,536 @@
+---
+title: "Delineamento em parcelas subdivididas"
+format: html
+editor: visual
+editor_options:
+  chunk_output_type: console
+---
+
+# Objetivos da aula
+
+Nesta aula, vamos analisar dados de um experimento com milho no qual se avaliou o **índice de infecção** em diferentes **híbridos** e **métodos de inoculação**. O exemplo é útil para discutir três pontos importantes em experimentação agrícola:
+
+1.  a estrutura de um delineamento com **parcelas subdivididas**;
+2.  a diferença entre uma ANOVA clássica com estratos de erro e um **modelo linear misto**;
+3.  o uso de médias ajustadas, comparações múltiplas e gráficos interpretáveis.
+
+A lógica estatística central é que nem todos os fatores são avaliados com a mesma precisão. Em parcelas subdivididas, o fator aplicado à parcela principal costuma ter um erro experimental diferente daquele aplicado à subparcela. Por isso, o modelo precisa reconhecer a estrutura hierárquica do experimento.
+
+# Pacotes
+
+```{r}
+library(readxl)
+library(tidyverse)
+library(car)
+library(lme4)
+library(lmerTest)
+library(DHARMa)
+library(emmeans)
+library(multcomp)
+library(knitr)
+```
+
+Usaremos o pacote `{readxl}` para importar os dados, `{tidyverse}` para manipulação e gráficos, `{car}` para o teste de Levene, `{lme4}` e `{lmerTest}` para modelos mistos, `{DHARMa}` para diagnóstico por resíduos simulados, `{emmeans}` para médias marginais estimadas e `{multcomp}` para letras de agrupamento.
+
+# Importação dos dados
+
+```{r}
+milho <- read_excel("dados_diversos.xlsx", sheet = "milho")
+
+milho
+```
+
+Neste conjunto de dados, consideramos as seguintes variáveis:
+
+-   `block`: bloco ou repetição do experimento;
+-   `hybrid`: híbrido de milho;
+-   `method`: método de inoculação;
+-   `index`: índice de infecção;
+-   `yield`: produtividade.
+
+Antes de ajustar qualquer modelo, é recomendável garantir que as variáveis categóricas estejam armazenadas como fatores.
+
+```{r}
+milho <- milho |>
+  mutate(
+    block = as.factor(block),
+    hybrid = as.factor(hybrid),
+    method = as.factor(method)
+  )
+
+glimpse(milho)
+```
+
+# Visualização exploratória
+
+A análise exploratória não substitui o modelo estatístico, mas ajuda a identificar padrões gerais, possíveis discrepâncias e a escala das variáveis.
+
+## Índice de infecção por método
+
+```{r}
+milho |>
+  ggplot(aes(x = method, y = index, color = method)) +
+  geom_point(position = position_jitter(width = 0.08, height = 0), size = 2.5, alpha = 0.8) +
+  labs(
+    x = "Método de inoculação",
+    y = "Índice de infecção",
+    title = "Distribuição do índice de infecção por método"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+O gráfico mostra a distribuição dos valores observados de `index` para cada método. Como os dados também dependem do híbrido e do bloco, diferenças aparentes entre métodos devem ser interpretadas com cautela nesta etapa.
+
+## Índice de infecção por híbrido e método
+
+```{r}
+milho |>
+  ggplot(aes(x = hybrid, y = index, color = method)) +
+  geom_point(position = position_jitterdodge(jitter.width = 0.08, dodge.width = 0.6),
+             size = 2.5, alpha = 0.8) +
+  labs(
+    x = "Híbrido",
+    y = "Índice de infecção",
+    color = "Método",
+    title = "Índice de infecção por híbrido e método"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Este gráfico é mais informativo porque mostra simultaneamente os dois fatores de interesse: híbrido e método. Ele também permite antecipar uma possível **interação** entre híbrido e método. Existe interação quando a diferença entre métodos não é constante para todos os híbridos.
+
+## Produtividade por método
+
+```{r}
+milho |>
+  ggplot(aes(x = method, y = yield, color = method)) +
+  geom_point(position = position_jitter(width = 0.08, height = 0), size = 2.5, alpha = 0.8) +
+  labs(
+    x = "Método de inoculação",
+    y = "Produtividade",
+    title = "Distribuição da produtividade por método"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+Embora a análise principal desta aula seja feita para `index`, a variável `yield` pode ser analisada posteriormente com estrutura semelhante, desde que o objetivo biológico seja claramente definido.
+
+# Delineamento em parcelas subdivididas
+
+Neste experimento, a estrutura estatística pode ser representada como um delineamento em **parcelas subdivididas**. Em termos práticos:
+
+-   os blocos representam fontes de variação controladas no campo;
+-   os híbridos são atribuídos às parcelas principais;
+-   os métodos são avaliados dentro das parcelas principais, nas subparcelas;
+-   a interação `hybrid:method` indica se o efeito do método depende do híbrido.
+
+A principal consequência estatística é que há dois níveis de erro:
+
+1.  erro da parcela principal, associado à comparação entre híbridos;
+2.  erro da subparcela, associado ao método e à interação híbrido × método.
+
+Uma forma didática de escrever o modelo é:
+
+$$
+y_{ijk} = \mu + B_i + H_j + (BH)_{ij} + M_k + (HM)_{jk} + \varepsilon_{ijk}
+$$
+
+em que:
+
+-   $y_{ijk}$ é a observação no bloco $i$, híbrido $j$ e método $k$;
+-   $\mu$ é a média geral;
+-   $B_i$ é o efeito do bloco;
+-   $H_j$ é o efeito do híbrido;
+-   $(BH)_{ij}$ é o erro da parcela principal, isto é, híbrido dentro de bloco;
+-   $M_k$ é o efeito do método;
+-   $(HM)_{jk}$ é a interação híbrido × método;
+-   $\varepsilon_{ijk}$ é o erro residual da subparcela.
+
+Em modelos mistos, geralmente tratamos bloco e parcela principal dentro de bloco como efeitos aleatórios:
+
+$$
+y_{ijk} = \mu + H_j + M_k + (HM)_{jk} + b_i + p_{ij} + \varepsilon_{ijk}
+$$
+
+com:
+
+$$
+b_i \sim N(0, \sigma_b^2), \qquad p_{ij} \sim N(0, \sigma_p^2), \qquad \varepsilon_{ijk} \sim N(0, \sigma^2)
+$$
+
+Essa formulação explicita que existem componentes de variância diferentes para blocos, parcelas principais e subparcelas.
+
+# ANOVA clássica com `aov()`
+
+A função `aov()` permite especificar estratos de erro usando `Error()`. Para parcelas subdivididas, podemos usar `Error(block/hybrid)`, que informa ao R que híbridos estão associados ao estrato de parcelas principais dentro de blocos.
+
+```{r}
+modelo_split <- aov(index ~ block + hybrid * method + Error(block/hybrid), data = milho)
+
+summary(modelo_split)
+```
+
+A expressão `hybrid * method` é equivalente a:
+
+``` r
+hybrid + method + hybrid:method
+```
+
+Portanto, o modelo testa:
+
+-   efeito principal de híbrido;
+-   efeito principal de método;
+-   interação híbrido × método.
+
+Em parcelas subdivididas, o teste para híbrido deve usar o erro da parcela principal. O teste para método e para a interação híbrido × método usa o erro da subparcela. Esse é o motivo pelo qual o modelo apresenta mais de um estrato de erro.
+
+# Pressupostos do modelo
+
+Os principais pressupostos de modelos lineares para ANOVA são:
+
+1.  independência dos erros;
+2.  normalidade aproximada dos resíduos;
+3.  homogeneidade de variâncias;
+4.  estrutura correta do delineamento.
+
+A independência depende principalmente do delineamento e da condução do experimento. Normalidade e homogeneidade podem ser avaliadas com gráficos e testes auxiliares.
+
+## Extração dos resíduos
+
+No objeto produzido por `aov()` com estratos de erro, os resíduos ficam armazenados por estrato. Para o diagnóstico da subparcela, extraímos os resíduos do estrato `Within`.
+
+```{r}
+residuos <- residuals(modelo_split$Within)
+
+head(residuos)
+```
+
+## Normalidade dos resíduos
+
+O teste de Shapiro-Wilk avalia a hipótese nula de que os resíduos seguem uma distribuição normal.
+
+$$
+H_0: \text{os resíduos seguem distribuição normal}
+$$
+
+$$
+H_A: \text{os resíduos não seguem distribuição normal}
+$$
+
+```{r}
+shapiro.test(residuos)
+```
+
+Um valor de $P$ pequeno sugere evidência contra a normalidade. Entretanto, em amostras pequenas, o teste pode ter baixa potência; em amostras grandes, diferenças pequenas podem gerar valores significativos. Por isso, o teste deve ser interpretado junto com gráficos de diagnóstico.
+
+```{r}
+tibble(residuos = residuos) |>
+  ggplot(aes(sample = residuos)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(
+    x = "Quantis teóricos",
+    y = "Quantis observados",
+    title = "Gráfico Q-Q dos resíduos"
+  ) +
+  theme_minimal()
+```
+
+Se os pontos seguem aproximadamente a reta, a suposição de normalidade é considerada razoável para fins práticos.
+
+## Homogeneidade de variâncias
+
+A homogeneidade de variâncias significa que a variabilidade residual é aproximadamente semelhante entre os grupos comparados. O teste de Levene avalia essa condição.
+
+```{r}
+leveneTest(index ~ hybrid * method, data = milho)
+```
+
+A hipótese nula é:
+
+$$
+H_0: \sigma_1^2 = \sigma_2^2 = \cdots = \sigma_g^2
+$$
+
+em que $g$ é o número de combinações entre híbridos e métodos.
+
+Neste exemplo, usamos a combinação `hybrid * method` porque a unidade comparativa final envolve os tratamentos formados pela combinação entre os dois fatores. Como o delineamento é hierárquico, o teste de Levene deve ser visto como diagnóstico auxiliar, não como substituto da modelagem correta.
+
+# Modelo linear misto
+
+A abordagem com modelos mistos é geralmente mais flexível para experimentos com estrutura hierárquica. Aqui, híbrido, método e sua interação são tratados como efeitos fixos, pois representam os tratamentos de interesse. Bloco e parcela principal dentro de bloco são tratados como efeitos aleatórios.
+
+```{r}
+modelo_misto <- lmer(
+  index ~ hybrid * method + (1 | block) + (1 | block:hybrid),
+  data = milho
+)
+```
+
+A especificação pode ser lida assim:
+
+-   `index ~ hybrid * method`: efeitos fixos de híbrido, método e interação;
+-   `(1 | block)`: intercepto aleatório para bloco;
+-   `(1 | block:hybrid)`: intercepto aleatório para a parcela principal, isto é, cada combinação bloco × híbrido.
+
+Esse modelo reconhece que observações dentro da mesma parcela principal tendem a ser mais semelhantes entre si do que observações de parcelas diferentes.
+
+## ANOVA do modelo misto
+
+```{r}
+anova(modelo_misto)
+```
+
+A tabela de ANOVA do modelo misto fornece testes para os efeitos fixos. O pacote `{lmerTest}` adiciona aproximações para graus de liberdade e valores de $P$, frequentemente usando métodos como Satterthwaite ou Kenward-Roger, dependendo da configuração.
+
+A interpretação segue a ordem lógica:
+
+1.  primeiro verificar se a interação `hybrid:method` é relevante;
+2.  se a interação for importante, interpretar o efeito de método dentro de cada híbrido e o efeito de híbrido dentro de cada método;
+3.  se a interação não for importante, os efeitos principais podem ser interpretados de forma mais direta.
+
+## Componentes de variância
+
+```{r}
+summary(modelo_misto)
+```
+
+O resumo do modelo mostra os componentes de variância dos efeitos aleatórios. Esses componentes indicam quanto da variação total é atribuída a:
+
+-   diferenças entre blocos;
+-   diferenças entre parcelas principais dentro de blocos;
+-   variação residual entre subparcelas.
+
+# Diagnóstico com resíduos simulados
+
+O pacote `{DHARMa}` usa simulação para avaliar os resíduos de modelos ajustados. Essa abordagem é útil porque resíduos simulados podem ser aplicados a diferentes classes de modelos.
+
+```{r}
+res_sim <- simulateResiduals(modelo_misto)
+plot(res_sim)
+```
+
+Os gráficos ajudam a avaliar:
+
+-   desvios globais da distribuição esperada dos resíduos;
+-   padrões entre resíduos e valores preditos;
+-   possíveis valores extremos;
+-   heterogeneidade de variância.
+
+Em modelos lineares gaussianos simples, gráficos clássicos de resíduos também são úteis. Em modelos mistos, o diagnóstico por simulação fornece uma verificação adicional.
+
+# Médias marginais estimadas
+
+As médias marginais estimadas, também chamadas de **least-squares means** ou **estimated marginal means**, são médias ajustadas pelo modelo. Elas são preferíveis às médias aritméticas simples quando há estrutura de delineamento, desbalanceamento ou efeitos adicionais no modelo.
+
+## Comparação de métodos dentro de cada híbrido
+
+```{r}
+medias_metodo_por_hibrido <- emmeans(modelo_misto, ~ method | hybrid)
+medias_metodo_por_hibrido
+```
+
+Essas médias respondem à pergunta:
+
+> Para cada híbrido, os métodos de inoculação diferem quanto ao índice de infecção?
+
+```{r}
+pares_metodo_por_hibrido <- pairs(medias_metodo_por_hibrido, adjust = "tukey")
+pares_metodo_por_hibrido
+```
+
+## Comparação de híbridos dentro de cada método
+
+```{r}
+medias_hibrido_por_metodo <- emmeans(modelo_misto, ~ hybrid | method)
+medias_hibrido_por_metodo
+```
+
+Essas médias respondem à pergunta:
+
+> Dentro de cada método de inoculação, quais híbridos diferem quanto ao índice de infecção?
+
+```{r}
+pares_hibrido_por_metodo <- pairs(medias_hibrido_por_metodo, adjust = "tukey")
+pares_hibrido_por_metodo
+```
+
+# Letras de agrupamento
+
+As letras de agrupamento são uma forma compacta de apresentar comparações múltiplas. Grupos que compartilham a mesma letra não diferem estatisticamente ao nível adotado.
+
+Neste material, usaremos a seguinte convenção:
+
+-   letras minúsculas comparam híbridos dentro de cada método;
+-   letras maiúsculas comparam métodos dentro de cada híbrido.
+
+## Letras para híbridos dentro de método
+
+```{r}
+letras_hibrido <- cld(
+  medias_hibrido_por_metodo,
+  adjust = "tukey",
+  Letters = letters
+) |>
+  as_tibble() |>
+  mutate(
+    letra_hibrido = str_trim(.group)
+  ) |>
+  dplyr::select(hybrid, method, letra_hibrido)
+
+letras_hibrido
+```
+
+## Letras para métodos dentro de híbrido
+
+```{r}
+letras_metodo <- cld(
+  medias_metodo_por_hibrido,
+  adjust = "tukey",
+  Letters = LETTERS
+) |>
+  as_tibble() |>
+  mutate(
+    letra_metodo = str_trim(.group)
+  ) |>
+  dplyr::select(hybrid, method, letra_metodo)
+
+letras_metodo
+```
+
+# Tabela final de médias ajustadas
+
+Agora combinamos as médias estimadas com as letras de comparação.
+
+```{r}
+tabela_medias <- as_tibble(emmeans(modelo_misto, ~ hybrid * method)) |>
+  left_join(letras_hibrido, by = c("hybrid", "method")) |>
+  left_join(letras_metodo, by = c("hybrid", "method")) |>
+  mutate(
+    letras = paste0(letra_hibrido, " ", letra_metodo),
+    emmean = round(emmean, 1),
+    SE = round(SE, 2),
+    lower.CL = round(lower.CL, 1),
+    upper.CL = round(upper.CL, 1)
+  ) |>
+  dplyr::select(hybrid, method, emmean, SE, lower.CL, upper.CL, letras)
+
+tabela_medias |>
+  kable(
+    col.names = c("Híbrido", "Método", "Média ajustada", "EP", "LI 95%", "LS 95%", "Letras"),
+    caption = "Médias ajustadas do índice de infecção para cada combinação entre híbrido e método."
+  )
+```
+
+A coluna `emmean` apresenta a média ajustada pelo modelo misto. O erro padrão (`SE`) expressa a incerteza associada à média estimada. Os limites `lower.CL` e `upper.CL` representam o intervalo de confiança de 95%.
+
+# Gráfico com médias ajustadas
+
+O gráfico abaixo é construído a partir das médias ajustadas pelo modelo, não a partir de valores digitados manualmente. Essa é a abordagem recomendada porque evita erros de transcrição e torna o relatório reprodutível.
+
+```{r}
+df_grafico <- as_tibble(emmeans(modelo_misto, ~ hybrid * method)) |>
+  left_join(letras_hibrido, by = c("hybrid", "method")) |>
+  left_join(letras_metodo, by = c("hybrid", "method")) |>
+  mutate(
+    letras = paste0(letra_hibrido, " ", letra_metodo),
+    ymax = emmean + SE
+  )
+
+
+ggplot(df_grafico, aes(x = hybrid, y = emmean, fill = method)) +
+  geom_col(
+    position = position_dodge(width = 0.8),
+    width = 0.7,
+    color = "black"
+  ) +
+  geom_errorbar(
+    aes(ymin = emmean - SE, ymax = emmean + SE),
+    position = position_dodge(width = 0.8),
+    width = 0.2
+  ) +
+  geom_text(
+    aes(label = letras, y = ymax + 2),
+    position = position_dodge(width = 0.8),
+    size = 3.5,
+    fontface = "bold"
+  ) +
+  labs(
+    x = "Híbrido",
+    y = "Índice de infecção",
+    fill = "Método",
+    title = "Índice de infecção por híbrido e método de inoculação",
+    subtitle = "Barras representam médias ajustadas pelo modelo misto; barras de erro representam ± 1 erro padrão"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "top"
+  )
+```
+
+No gráfico, as barras representam as médias ajustadas pelo modelo misto. As barras de erro representam $\pm 1$ erro padrão. As letras devem ser interpretadas de acordo com o contexto da comparação:
+
+-   letras minúsculas: comparação entre híbridos dentro do mesmo método;
+-   letras maiúsculas: comparação entre métodos dentro do mesmo híbrido.
+
+# Interpretação estatística
+
+A interpretação deve seguir a estrutura do modelo. Se a interação híbrido × método for significativa ou biologicamente relevante, a comparação entre métodos deve ser feita dentro de cada híbrido, e a comparação entre híbridos deve ser feita dentro de cada método. Nesse caso, não é adequado apresentar apenas um efeito médio geral de método, pois esse efeito médio pode ocultar respostas específicas de cada híbrido.
+
+Quando a interação não é significativa e também não há indicação biológica forte de respostas contrastantes, os efeitos principais podem ser interpretados com mais segurança. Mesmo assim, em experimentos agrícolas, a ausência de significância estatística não deve ser confundida com ausência absoluta de efeito. O tamanho do efeito, a precisão experimental e a relevância prática também precisam ser considerados.
+
+# Como relatar os resultados
+
+Um parágrafo possível para relatar a análise seria:
+
+> O índice de infecção foi analisado considerando a estrutura de parcelas subdivididas, com híbridos nas parcelas principais e métodos de inoculação nas subparcelas. Foi ajustado um modelo linear misto com efeitos fixos de híbrido, método e sua interação, e efeitos aleatórios de bloco e parcela principal dentro de bloco. As médias ajustadas foram obtidas por `emmeans`, e as comparações múltiplas foram realizadas com ajuste de Tukey. Quando a interação híbrido × método foi relevante, os métodos foram comparados dentro de cada híbrido e os híbridos foram comparados dentro de cada método.
+
+# Extensão para produtividade
+
+A mesma estrutura de análise pode ser usada para `yield`, substituindo a variável resposta no modelo.
+
+```{r}
+modelo_yield <- lmer(
+  yield ~ hybrid * method + (1 | block) + (1 | block:hybrid),
+  data = milho
+)
+
+anova(modelo_yield)
+```
+
+```{r}
+emmeans(modelo_yield, ~ hybrid * method)
+```
+
+A interpretação para produtividade deve considerar a pergunta biológica. Por exemplo, podemos perguntar se os métodos de inoculação alteram a produtividade, se os híbridos diferem em produtividade, ou se a resposta produtiva ao método depende do híbrido.
+
+# Pontos principais da aula
+
+1.  Experimentos em parcelas subdivididas possuem mais de um estrato de erro.
+2.  O fator da parcela principal e o fator da subparcela não devem ser testados usando o mesmo erro experimental.
+3.  Modelos mistos representam de forma natural a estrutura hierárquica do delineamento.
+4.  A interação entre fatores deve ser interpretada antes dos efeitos principais.
+5.  Médias ajustadas por modelo são preferíveis a médias simples quando há estrutura experimental.
+6.  Gráficos devem ser gerados a partir dos resultados do modelo, não digitados manualmente.
+
+# Referências
+
+BATES, D.; MÄCHLER, M.; BOLKER, B.; WALKER, S. Fitting Linear Mixed-Effects Models Using lme4. *Journal of Statistical Software*, v. 67, n. 1, p. 1–48, 2015.
+
+HOTHORN, T.; BRETZ, F.; WESTFALL, P. Simultaneous inference in general parametric models. *Biometrical Journal*, v. 50, n. 3, p. 346–363, 2008.
+
+KUZNETSOVA, A.; BROCKHOFF, P. B.; CHRISTENSEN, R. H. B. lmerTest Package: Tests in Linear Mixed Effects Models. *Journal of Statistical Software*, v. 82, n. 13, p. 1–26, 2017.
+
+LEVENe, H. Robust tests for equality of variances. In: OLKIN, I. et al. (ed.). *Contributions to Probability and Statistics*. Stanford: Stanford University Press, 1960. p. 278–292.
+
+LENTH, R. V. *emmeans: Estimated Marginal Means, aka Least-Squares Means*. R package, 2024.
+
+PINHEIRO, J. C.; BATES, D. M. *Mixed-Effects Models in S and S-PLUS*. New York: Springer, 2000.
+
+SHAPIRO, S. S.; WILK, M. B. An analysis of variance test for normality (complete samples). *Biometrika*, v. 52, n. 3–4, p. 591–611, 1965.
+
+TUKEY, J. W. *The Problem of Multiple Comparisons*. Princeton: Princeton University, 1953.
