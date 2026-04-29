@@ -1,0 +1,187 @@
+---
+title: "Aula 8: Análise de Regressão e Modelos Mistos"
+author: "Emerson Del Ponte"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+# Introdução à Regressão Linear
+
+A regressão linear simples é utilizada para modelar a relação entre uma variável dependente contínua ($Y$) e uma variável independente contínua ($X$). O modelo é representado pela equação: $$Y = \beta_0 + \beta_1 X + \epsilon$$ Onde: - $\beta_0$ é o intercepto (valor de $Y$ quando $X=0$). - $\beta_1$ é o coeficiente angular (inclinação da reta). - $\epsilon$ é o erro residual.
+
+## Exemplo 1: Rendimento vs. Dose de Nitrogênio
+
+Neste exemplo, exploramos como a dose de nitrogênio influencia o rendimento de grãos.
+
+```{r}
+#| message: false
+#| warning: false
+library(tidyverse)
+library(rio)
+library(DHARMa)
+library(readxl)
+library(lme4)
+library(car)
+
+# Criação de um conjunto de dados simples
+x <- seq(0, 150, by = 25)
+y <- c(8.6, 8.9, 9.5, 9.9, 10, 10.2, 10.5)
+df <- data.frame(x = x, y = y)
+
+# Visualização inicial com linha de tendência linear
+ggplot(df, aes(x, y)) +
+  geom_point(size = 4, color = "red") + 
+  geom_smooth(se = FALSE, method = "lm") +
+  labs(
+    title = "Relação entre Dose de N e Rendimento",
+    x = "Dose de N (Kg/ha)",
+    y = "Rendimento de grãos (t/ha)"
+  ) +
+  theme_minimal()
+
+# Ajuste do modelo de regressão linear simples
+m1 <- lm(y ~ x, data = df)
+
+# Resumo do modelo: interpretação dos coeficientes e R²
+# O R² indica a proporção da variância de Y explicada por X.
+summary(m1)
+
+# Predição manual para uma dose de 200 Kg/ha
+x_new <- 200
+y_pred <- coef(m1)[1] + (coef(m1)[2] * x_new)
+y_pred
+
+# Verificação de valores preditos e resíduos
+pred_df <- df |> 
+  mutate(
+    predito = predict(m1),
+    residual = y - predito
+  )
+pred_df
+
+# Coeficiente de correlação e R²
+r <- cor(df$x, df$y)
+r_sq <- r^2
+r_sq
+```
+
+# Regressão com Dados Externos
+
+Utilizando dados de um experimento real para ajustar a regressão e adicionar a equação ao gráfico.
+
+```{r}
+# Importação de dados
+url <- "https://bit.ly/df_biostat"
+df_reg <- import(url, sheet = "REG_DEL_DATA", setclass = "tbl")
+
+# Visualização com anotação da equação
+# A equação estimada é Y = 8.43 + 0.0242 * X
+df_reg |> 
+  ggplot(aes(DOSEN, RG)) +
+  geom_point() +
+  geom_smooth(se = FALSE, method = "lm") +
+  annotate(
+    geom = "text", 
+    x = 35, y = 10.5,
+    label = "y = 8.43 + 0.0242*x"
+  ) +
+  labs(x = "Dose de N", y = "Rendimento") +
+  theme_light()
+
+# Ajuste e ANOVA do modelo
+m2 <- lm(RG ~ DOSEN, data = df_reg)
+anova(m2)
+summary(m2)
+```
+
+# Regressão Polinomial (Quadrática)
+
+Muitas vezes a resposta não é linear. O rendimento pode aumentar até certo ponto e depois estabilizar ou cair (lei dos retornos decrescentes). O modelo quadrático é: $$Y = \beta_0 + \beta_1 X + \beta_2 X^2 + \epsilon$$
+
+A dose de máxima resposta econômica ou biológica pode ser calculada como $X_{max} = -\beta_1 / (2 \beta_2)$.
+
+```{r}
+# Dados com comportamento não-linear
+DOSEN <- c(0, 50, 100, 150, 200, 250)
+RG    <- c(7.1, 7.3, 7.66, 7.71, 7.62, 7.6)
+df2 <- data.frame(DOSEN = DOSEN, RG = RG)
+
+# Ajuste do modelo quadrático (segundo grau)
+m4 <- lm(RG ~ poly(DOSEN, 2, raw = TRUE), data = df2)
+summary(m4)
+
+# Extração dos coeficientes para cálculo do ponto de máximo
+b0 <- coef(m4)[1]
+b1 <- coef(m4)[2] # Coeficiente linear (b)
+b2 <- coef(m4)[3] # Coeficiente quadrático (a)
+
+# Cálculo da Dose Máxima
+dose_max <- -b1 / (2 * b2)
+dose_max
+
+# Visualização do modelo polinomial
+df2 |> 
+  ggplot(aes(DOSEN, RG)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, formula = y ~ poly(x, 2)) +
+  geom_vline(xintercept = dose_max, linetype = "dashed", color = "blue") +
+  labs(
+    title = "Ajuste Quadrático e Ponto de Máximo",
+    subtitle = paste("Dose máxima estimada:", round(dose_max, 2)),
+    x = "Dose de N", y = "Rendimento"
+  ) +
+  theme_minimal()
+```
+
+# Modelos Mistos e Multi-experimentos
+
+Quando temos dados de múltiplos experimentos ou locais, as observações dentro de cada experimento podem ser correlacionadas. Nesses casos, usamos Modelos Lineares Generalizados Mistos (GLMM) ou Modelos Mistos. - **Efeitos Fixos**: O tratamento de interesse (ex: incidência de fungo). - **Efeitos Aleatórios**: Fatores que representam uma amostra da população (ex: experimentos, blocos dentro de experimentos).
+
+```{r}
+# Carregar dados de múltiplos experimentos
+estande <- read_excel("dados_diversos.xlsx", "estande")
+
+# Visualização dos experimentos individuais
+estande |> 
+  ggplot(aes(trat, nplants, group = exp)) +
+  geom_point(color = "gray") +
+  geom_smooth(method = "lm", se = FALSE, color = "gray", size = 0.5) +
+  geom_abline(intercept = 69.74, slope = -0.56, linewidth = 2, color = "black") +
+  theme_classic() +
+  labs(
+    title = "Estande em função da Incidência de Fungo",
+    subtitle = "Linhas cinzas: experimentos individuais; Linha preta: tendência geral",
+    x = "Incidência de fungo na semente (%)", 
+    y = "Estande (n. de plantas)"
+  )
+
+# Análise por experimento (Abordagem clássica)
+# Experimento 1
+exp1 <- estande |> filter(exp == 1)
+m_exp1 <- lm(sqrt(nplants) ~ trat + bloco, data = exp1)
+anova(m_exp1)
+plot(simulateResiduals(m_exp1))
+
+# Experimento 2
+exp2 <- estande |> filter(exp == 2)
+m_exp2 <- lm(sqrt(nplants) ~ trat, data = exp2)
+anova(m_exp2)
+
+# Experimento 3
+exp3 <- estande |> filter(exp == 3)
+m_exp3 <- lm(sqrt(nplants) ~ trat, data = exp3)
+anova(m_exp3)
+
+# ABORDAGEM DE MODELO MISTO
+# Tratamos 'exp' e 'bloco' como efeitos aleatórios
+# A notação (1 | exp/bloco) indica blocos aninhados dentro de experimentos
+m_mix <- lmer(nplants ~ trat + (1 | exp/bloco), data = estande)
+
+# Resultados do modelo misto
+summary(m_mix)
+car::Anova(m_mix) # Teste de Wald para efeitos fixos
+
+# Diagnóstico de resíduos para modelos mistos usando DHARMa
+plot(simulateResiduals(m_mix))
+```

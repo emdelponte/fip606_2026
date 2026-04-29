@@ -38,6 +38,9 @@ website:
           - href: aula7.qmd
             text: Parcelas subdivididas
 
+          - href: aula8.qmd
+            text: Regressão e Modelos Mistos
+
 format:
   html:
     theme:
